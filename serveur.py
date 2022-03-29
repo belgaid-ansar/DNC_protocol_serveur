@@ -4,7 +4,6 @@ import sys
 import re
 
 Users = {}
-nb_user=0
 
 #METHODE valide_commande
 def valide_commande(commande):
@@ -13,7 +12,7 @@ def valide_commande(commande):
 #FIN METHODE
 
 # METHODE traiter_client
-def traiter_client(sock_file, adr_client, nb_user):
+def traiter_client(sock_file, adr_client):
     CONNECTED = False
 
     #Traitement de la commande CONNECT
@@ -29,30 +28,52 @@ def traiter_client(sock_file, adr_client, nb_user):
             mess = sock_file.recv(256) 
 
         x = mess.decode().split(" ") #On recupere le username
-        print("bonjour")
+        username= x[1]
+        #print("bonjour")
         #Verification du username
-        if x[1] in Users :
+        if username in Users :
             sock_file.sendall("406".encode())
             mess = sock_file.recv(256)
         else :
-            print(x[1],"connected to the server")
+            print(username,"connected to the server")
+            #io.emit('message', "this is a test");
             sock_file.sendall("200".encode()) # je renvoie le code de retour 
 
             #Ajout de l'utilisateur
-            Users[x[1]]={}
-            Users[x[1]]['port']= adr_client
+            Users[username]={}
+            Users[username]['port']= adr_client
        
             CONNECTED = True
 
-    while True:
+    while True and CONNECTED == True:
         print("Serveur à l'écoute")
         mess = sock_file.recv(256)
 
         #On traite les autres commandes apres la commande CONNECT      
         if re.match(r"CONNECT [a-zA-Z]+", mess.decode()):
             sock_file.sendall("418".encode())
+
         elif mess.decode() == "USERS":
             sock_file.sendall(("200 "+str(Users)).encode())
+
+        elif re.match(r"RENAME .+", mess.decode()):
+            if not re.match(r"RENAME [a-zA-Z]+", mess.decode()) :
+                sock_file.sendall("207".encode())
+            else :
+                new_username = mess.decode().split(" ") #On recupere le username
+                #Verification du username
+                if new_username[1] in Users :
+                    sock_file.sendall("406".encode())
+                else :
+                    Users[new_username[1]] = Users.pop(username)
+                    sock_file.sendall("203".encode())
+
+        elif mess.decode() == "QUIT" :
+            pass
+
+        elif mess.decode() == "" :
+            pass
+
         else: 
             sock_file.sendall("402".encode())
             
@@ -80,8 +101,7 @@ print("Serveur en attente sur le port " + sys.argv[1], file=sys.stderr)
 while True:
     try:
         sock_client, adr_client = sock_locale.accept()
-        nb_user =nb_user+1
-        threading.Thread(target=traiter_client, args = (sock_client, adr_client,nb_user)).start()
+        threading.Thread(target=traiter_client, args = (sock_client, adr_client)).start()
     except KeyboardInterrupt:
         break
 
