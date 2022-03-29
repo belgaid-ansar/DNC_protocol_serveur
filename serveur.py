@@ -6,29 +6,47 @@ import re
 Users = {}
 nb_user=0
 
+#METHODE valide_commande
+def valide_commande(commande):
+    if commande :
+        pass
+#FIN METHODE
+
+# METHODE traiter_client
 def traiter_client(sock_file, adr_client, nb_user):
+
+    #Traitement de la commande CONNECT
+    print("Serveur à l'écoute")
+    mess = sock_file.recv(256)
+    while not re.match(r"CONNECT [a-zA-Z]+", mess.decode()): #Tant qu'il n'est pas connecté
+        sock_file.sendall("402".encode())
+        mess = sock_file.recv(256)
+
+    x = mess.decode().split(" ") #On recupere le username
+
+    #Verification du username
+    #.......
+
+    print(x[1],"connected to the server")
+    sock_file.sendall("200".encode()) # je renvoie le code de retour 
+    
+    #Creation de la liste des utilisateurs
+    Users[nb_user] = {}
+    Users[nb_user]['username'] = x[1]
+    Users[nb_user]['port'] = adr_client
+
     while True:
         print("Serveur à l'écoute")
-        #print(Users)
         mess = sock_file.recv(256)
-        if mess.decode() == "" :
-            break
-        else:
-            #on traite la commande CONNECT
-            if re.findall("CONNECT", mess.decode()):
-                x = mess.decode().split(" ")
-                print(x[1],"connected to the server")
-                retour_connection="200"
-                sock_file.sendall(retour_connection.encode()) # je renvoie le code de retour 
-                
-                Users[nb_user] = {}
-                Users[nb_user]['username'] = x[1]
-                Users[nb_user]['port'] = adr_client
-                
-                #On traite les autres commandes apres la commande CONNECT
-                if re.findall("CONNECT", mess.decode()):
-                    retour="418"
-                sock_file.sendall(retour.encode())
+
+        #On traite les autres commandes apres la commande CONNECT      
+        if re.match(r"CONNECT [a-zA-Z]+", mess.decode()):
+            sock_file.sendall("418".encode())
+        elif mess.decode() == "USERS":
+            sock_file.sendall(("200 "+str(Users)).encode())
+        else: 
+            sock_file.sendall("402".encode())
+            
             '''
             elif mess.decode()=="QUIT":
                 sock_locale.shutdown(socket.SHUT_RDWR)
@@ -37,6 +55,7 @@ def traiter_client(sock_file, adr_client, nb_user):
 
         #sock_file.sendall(mess.upper())
 
+# FIN METHODE 
 
 #Arguments
 if len(sys.argv) != 2:
