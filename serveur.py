@@ -1,3 +1,4 @@
+from ast import List
 import socket
 import threading
 import sys
@@ -12,7 +13,7 @@ def valide_commande(commande):
 #FIN METHODE
 
 # METHODE traiter_client
-def traiter_client(sock_file, adr_client):
+def traiter_client(sock_file, adr_client,username_client=None):
     CONNECTED = False
 
     #Traitement de la commande CONNECT
@@ -41,8 +42,9 @@ def traiter_client(sock_file, adr_client):
 
             #Ajout de l'utilisateur
             Users[username]={}
-            Users[username]['port']= adr_client
-       
+            Users[username]['port']= sock_file
+            username_client= username
+
             CONNECTED = True
 
     while True and CONNECTED == True:
@@ -54,19 +56,27 @@ def traiter_client(sock_file, adr_client):
             sock_file.sendall("418".encode())
 
         elif mess.decode() == "USERS":
-            sock_file.sendall(("200 "+str(Users)).encode())
+            sock_file.sendall(("200 "+" , ".join(list(Users.keys()))).encode())
 
         elif re.match(r"RENAME .+", mess.decode()):
             if not re.match(r"RENAME [a-zA-Z]+", mess.decode()) :
                 sock_file.sendall("207".encode())
             else :
-                new_username = mess.decode().split(" ") #On recupere le username
+                y = mess.decode().split(" ") #On recupere le username
+                new_username=y[1]
                 #Verification du username
-                if new_username[1] in Users :
+                if new_username in Users :
                     sock_file.sendall("406".encode())
                 else :
-                    Users[new_username[1]] = Users.pop(username)
+                    Users[new_username] = Users.pop(username)
+                    username_client = new_username
                     sock_file.sendall("203".encode())
+
+                    #prevenir les autres clients
+                    for value in Users.values() : 
+                        if Users[username_client]['port'] != value['port'] :
+                            code = "CODE "+new_username
+                            value["port"].sendall(code.encode())
 
         elif mess.decode() == "QUIT" :
             pass
