@@ -3,91 +3,88 @@ import socket
 import threading
 import sys
 import re
-import os.path
 
 Users = {}
 
 # METHODE traiter_client :
 def traiter_client(sock_fille, adr_client,username_client=None): 
 
-    CONNECTED =False
-    MUTED =False
-
     print("Serveur à l'écoute")
-    print("ici")
-
-    while True :
-
-        message = sock_fille.recv(256).decode()
-
-        if not CONNECTED:
-            username=connect(sock_fille,message)
-            if username != "":
-                username_client = username
-                CONNECTED=True
-            else:
-                sock_fille.sendall('110'.encode())
-                print("Serveur à l'écoute")
-
-        if CONNECTED and not MUTED:  # On traite les autres commandes apres la commande CONNECT
-            print("conn")
+    print(Users)
+    message = sock_fille.recv(256).decode()
+    
+    '''while not first_connection(sock_fille,message) :
+        print("Serveur à l'écoute")
+        message = sock_fille.recv(256).decode()'''
+    
+    CONNECTED =False
+    while not CONNECTED:
+        username=connect(sock_fille,message)
+        if username != "":
+            username_client = username
+            CONNECTED=True
+        else:
             print("Serveur à l'écoute")
+            message = sock_fille.recv(256).decode()
+        
+    while CONNECTED:  # On traite les autres commandes apres la commande CONNECT
+        print(Users)
+        print("Serveur à l'écoute")
+        message = sock_fille.recv(256).decode() 
 
-            if match_commande(sock_fille,message) != "" :
-                
-                COMMANDE = match_commande(sock_fille,message) # Je recupere la commande
+        while match_commande(sock_fille,message) == "" :
+            print("Serveur à l'écoute")
+            message = sock_fille.recv(256).decode()
+        
+        COMMANDE = match_commande(sock_fille,message) # Je recupere la commande
 
-                if COMMANDE == "CONNECT":
-                    sock_fille.sendall("418".encode())
+        if COMMANDE == "CONNECT":
+            sock_fille.sendall("418".encode())
 
-                elif COMMANDE == "USERS":
-                    sock_fille.sendall(("208 "+" ".join(list(Users.keys()))).encode())
+        elif COMMANDE == "USERS":
+            sock_fille.sendall(("200 "+" , ".join(list(Users.keys()))).encode())
 
-                elif COMMANDE == "RENAME":
-                    val=rename(sock_fille,message,username_client)
-                    if val != "" :
-                        username_client = val  
+        elif COMMANDE == "RENAME":
+            val=rename(sock_fille,message,username_client)
+            if val != "" :
+                username_client = val  
 
-                elif COMMANDE == "BROADCAST": 
-                    broadcast(sock_fille,message,username_client)     
-                
-                elif COMMANDE == "WHISPER" : 
-                    whisper(sock_fille,message,username)
-                
-                elif COMMANDE == "ACCEPTWHISPER" : 
-                    acceptwhisper(sock_fille,message,username)
+        elif COMMANDE == "BROADCAST": 
+            broadcast(sock_fille,message,username_client)     
+        
+        elif COMMANDE == "WHISPER" : 
+            whisper(sock_fille,message,username)
+        
+        elif COMMANDE == "ACCEPTWHISPER" : 
+            acceptwhisper(sock_fille,message,username)
 
-                elif COMMANDE == "DECLINEWHISPER" : 
-                    declinewhisper(sock_fille,message,username)
+        elif COMMANDE == "DECLINEWHISPER" : 
+            declinewhisper(sock_fille,message,username)
 
-                elif COMMANDE == "WHISPERMESSAGE" : 
-                    whispermessage(sock_fille,message,username)
+        elif COMMANDE == "WHISPERMESSAGE" : 
+            whispermessage(sock_fille,message,username)
 
-                elif COMMANDE == "ENDWHISPER" : 
-                    endwhisper(sock_fille,message,username)
-                
-                elif COMMANDE == "SENDFILEDEMAND" : 
-                    sendfiledemand(sock_fille,message,username)
-                
-                elif COMMANDE == "ACCEPTSENDFILE" : 
-                    acceptsendfile(sock_fille,message,username)
+        elif COMMANDE == "ENDWHISPER" : 
+            endwhisper(sock_fille,message,username)
+        
+        elif COMMANDE == "SENDFILEDEMAND" : 
+            sendfiledemand(sock_fille,message,username)
+        
+        elif COMMANDE == "ACCEPTSENDFILE" : 
+            acceptsendfile(sock_fille,message,username)
 
-                elif COMMANDE == "DECLINESENDFILE" : 
-                    declinesendfile(sock_fille,message,username)
+        elif COMMANDE == "DECLINESENDFILE" : 
+            declinesendfile(sock_fille,message,username)
 
-                elif COMMANDE == "SENDFILE" : 
-                    sendfile(sock_fille,message,username)
+        elif COMMANDE == "SENDFILE" : 
+            sendfile(sock_fille,message,username)
 
-                elif COMMANDE == "ENDSENDFILE" : 
-                    endsendfile(sock_fille,message,username)
+        elif COMMANDE == "ENDSENDFILE" : 
+            endsendfile(sock_fille,message,username)
 
-                elif COMMANDE == "MUTE" :
-                    mute(sock_fille,username)
-                    MUTED = True
-
-                elif COMMANDE == "QUIT" :
-                    sock_fille.sendall("CODE je quitte".encode())
-                    return sock_fille.shutdown 
+        elif COMMANDE == "QUIT" :
+            sock_fille.sendall("CODE je quitte".encode())
+            return sock_fille.shutdown 
 # FIN METHODE
 
 '''# METHODE first_connection :
@@ -129,21 +126,12 @@ def match_commande(socket,commande):
         return "SENDFILE"
     elif re.match(r"ENDSENDFILE [^ ]+$",commande):
         return "ENDSENDFILE"
-    elif re.match(r"MUTE",commande):
-        return "MUTE"
+
     elif re.match(r"QUIT", commande) :
         return "QUIT"
     else :
         socket.sendall("402".encode())
         return ""
-# FIN METHODE
-
-# METHODE MUTE
-def mute(socket,username):
-    for value in Users.values() :   # prevenir les autres clients
-            code = "120 "+username
-            value["port"].sendall(code.encode())
-    
 # FIN METHODE
 
 # METHODE CONNECT username :
@@ -206,7 +194,7 @@ def rename(socket,message,username):
 
             for value in Users.values() :   # prevenir les autres clients
                 if Users[new_username]['port'] != value['port'] :
-                    code = "203 "+username+" "+new_username #pas trop sur du 203 a voir...
+                    code = "CODE "+username+" "+new_username
                     value["port"].sendall(code.encode())
             
             socket.sendall("203".encode()) # j'envoie la reponse au client qui vient de se renommer
@@ -222,7 +210,7 @@ def broadcast(socket,message,username):
     #socket.sendall("206".encode()) # message de retour a l'envoyeur
 
     for value in Users.values() :   # prevenir les autres clients
-        #if Users[username]['port'] != value['port'] :
+        if Users[username]['port'] != value['port'] :
             code = "118 "+username+" "+broadcast
             value["port"].sendall(code.encode())
 
@@ -509,7 +497,7 @@ def sendfile (socket,message,username):
                     
                 elif Users[username]['file'][username_file_receiver] == True : # S'il a accepté
 
-                    if not os.path.isfile(file_path): # chemin du fichier incorrect
+                    if file_path == "" : # chemin du fichier incorrect
                         socket.sendall("410".encode())   
 
                     else :  # Chemin du fichier correct
