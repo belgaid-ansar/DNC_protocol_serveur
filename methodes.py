@@ -10,33 +10,55 @@ Users = {}
 # METHODE traiter_client :
 def traiter_client(sock_fille, adr_client,username_client=None): 
 
-    CONNECTED =False
-    MUTED =False
-
+    CONNECTED = False
+    MUTED = False
+    
     print("Serveur à l'écoute")
-    print("ici")
 
     while True :
 
-        message = sock_fille.recv(256).decode()
+        print(Users)
+        print("Serveur à l'écoute")
+
+        try :
+            message = sock_fille.recv(256).decode()
+        except :   # Connexion interrompue 
+            if CONNECTED :
+                for value in Users.values() :  # Je supprime le client partout
+                    if username in value['chat'] :  # Des chats 
+                        value['chat'].pop(username)
+                    if username in value['file'] :  # Des fichiers
+                        value['file'].pop(username)
+
+                Users.pop(username)  # Enfin, je supprime le client des users
+
+            sock_fille.shutdown(socket.SHUT_RDWR)
+            break
+        
+        COMMANDE = match_commande(sock_fille,message) # je recupere la methode
 
         if not CONNECTED:
             username=connect(sock_fille,message)
             if username != "":
                 username_client = username
                 CONNECTED=True
-            else:
-                sock_fille.sendall('110'.encode())
-                print("Serveur à l'écoute")
 
-        if CONNECTED and not MUTED:  # On traite les autres commandes apres la commande CONNECT
-            print("conn")
-            print("Serveur à l'écoute")
+        elif CONNECTED and MUTED :
+            
+            if COMMANDE == "MUTE" :
+                sock_fille.sendall("414".encode())
 
-            if match_commande(sock_fille,message) != "" :
+            elif COMMANDE == "UNMUTE" :
+                unmute(sock_fille,username)
+                MUTED = False
                 
-                COMMANDE = match_commande(sock_fille,message) # Je recupere la commande
+            else :
+                sock_fille.sendall("409".encode())
 
+        elif CONNECTED and not MUTED:  # On traite les autres commandes apres la commande CONNECT
+        
+            if COMMANDE != "" :
+                
                 if COMMANDE == "CONNECT":
                     sock_fille.sendall("418".encode())
 
@@ -84,10 +106,18 @@ def traiter_client(sock_fille, adr_client,username_client=None):
                 elif COMMANDE == "MUTE" :
                     mute(sock_fille,username)
                     MUTED = True
-
+                
+                elif COMMANDE == "UNMUTE" :
+                    unmute(sock_fille,username)
+                    #MUTED = False
+               
                 elif COMMANDE == "QUIT" :
-                    sock_fille.sendall("CODE je quitte".encode())
-                    return sock_fille.shutdown 
+                    quit(sock_fille,username)
+                    CONNECTED = False
+
+            else :
+                sock_fille.sendall("402".encode())
+
 # FIN METHODE
 
 '''# METHODE first_connection :
@@ -129,21 +159,50 @@ def match_commande(socket,commande):
         return "SENDFILE"
     elif re.match(r"ENDSENDFILE [^ ]+$",commande):
         return "ENDSENDFILE"
-    elif re.match(r"MUTE",commande):
+    elif re.match(r"^MUTE$",commande):
         return "MUTE"
+    elif re.match(r"^UNMUTE$",commande):
+        return "UNMUTE"
     elif re.match(r"QUIT", commande) :
         return "QUIT"
     else :
-        socket.sendall("402".encode())
         return ""
+# FIN METHODE
+
+# METHODE QUIT
+def quit(socket,username):
+
+    for value in Users.values() : 
+        # prevenir les autres clients
+        code = "121 "+username  
+        value["port"].sendall(code.encode())
+
+        # Je supprime le client partout
+        if username in value['chat'] :  # Des chats 
+            value['chat'].pop(username)
+        if username in value['file'] :  # Des fichiers
+            value['file'].pop(username)
+
+    Users.pop(username)  # Enfin, je supprime le client des users
+
+    socket.shutdown(socket.SHUT_RDWR)
+    socket.close()
 # FIN METHODE
 
 # METHODE MUTE
 def mute(socket,username):
+    for value in Users.values() :   # prevenir les autres clients   
+        code = "120 "+username
+        value["port"].sendall(code.encode())
+# FIN METHODE
+
+# METHODE UNMUTE
+def unmute(socket,username):
+    socket.sendall("205".encode())  # message de retour ? pas sur a voir ....
+
     for value in Users.values() :   # prevenir les autres clients
-            code = "120 "+username
-            value["port"].sendall(code.encode())
-    
+        code = "121 "+username
+        value["port"].sendall(code.encode())  
 # FIN METHODE
 
 # METHODE CONNECT username :
@@ -197,8 +256,6 @@ def rename(socket,message,username):
         else :
             
             for value in Users.values() :
-                # print(value)
-                print(value['chat'])
                 if username in value['chat'] : # Je modifie le username partout
                     value['chat'][new_username] = value['chat'].pop(username)
 
