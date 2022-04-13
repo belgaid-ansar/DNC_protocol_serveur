@@ -375,7 +375,7 @@ def whispermessage (socket,message,username):
                     socket.sendall(code.encode())  
                     
                 elif Users[username]['chat'][username_chat_receiver] == True : # S'il a accepté
-                        code_retour = "118 "+username+" "+chat_message
+                        code_retour = "115 "+username+" "+chat_message
                         Users[username_chat_receiver]['port'].sendall(code_retour.encode())
                         socket.sendall(code_retour.encode())
 # FIN METHODE
