@@ -17,7 +17,7 @@ def traiter_client(sock_fille, adr_client,username_client=None):
 
     while True :
 
-        print(Users)
+        #print(Users)
         print("Serveur à l'écoute")
 
         try :
