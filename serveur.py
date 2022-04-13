@@ -7,7 +7,7 @@ if len(sys.argv) != 2:
 	sys.exit(1)
 
 sock_locale= socket.socket()
-sock_locale.bind(("", int(sys.argv[1])))
+sock_locale.bind(("192.168.43.101", int(sys.argv[1])))
 sock_locale.listen(4)
 
 print("Serveur en attente sur le port " + sys.argv[1], file=sys.stderr)

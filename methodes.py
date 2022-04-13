@@ -16,24 +16,16 @@ def traiter_client(sock_fille, adr_client,username_client=None):
     print("Serveur à l'écoute")
 
     while True :
-
-        #print(Users)
+        print(Users)
         print("Serveur à l'écoute")
 
         try :
             message = sock_fille.recv(256).decode()
         except :   # Connexion interrompue 
-            if CONNECTED :
-                for value in Users.values() :  # Je supprime le client partout
-                    if username in value['chat'] :  # Des chats 
-                        value['chat'].pop(username)
-                    if username in value['file'] :  # Des fichiers
-                        value['file'].pop(username)
-
-                Users.pop(username)  # Enfin, je supprime le client des users
-
+            quit(sock_fille,username)
             sock_fille.shutdown(socket.SHUT_RDWR)
-            break
+            sock_fille.close()
+            return 
         
         COMMANDE = match_commande(sock_fille,message) # je recupere la methode
 
@@ -51,7 +43,10 @@ def traiter_client(sock_fille, adr_client,username_client=None):
             elif COMMANDE == "UNMUTE" :
                 unmute(sock_fille,username)
                 MUTED = False
-                
+            
+            elif COMMANDE == "QUIT" :
+                quit(sock_fille,username)
+                MUTED = False 
             else :
                 sock_fille.sendall("409".encode())
 
@@ -92,7 +87,7 @@ def traiter_client(sock_fille, adr_client,username_client=None):
                     sendfiledemand(sock_fille,message,username)
                 
                 elif COMMANDE == "ACCEPTSENDFILE" : 
-                    acceptsendfile(sock_fille,message,username)
+                    acceptsendfile(sock_fille,message,username, adr_client)
 
                 elif COMMANDE == "DECLINESENDFILE" : 
                     declinesendfile(sock_fille,message,username)
@@ -119,15 +114,6 @@ def traiter_client(sock_fille, adr_client,username_client=None):
                 sock_fille.sendall("402".encode())
 
 # FIN METHODE
-
-'''# METHODE first_connection :
-def first_connection(socket,commande):
-    if re.match(r"CONNECT [^ ]+$", commande) :
-        return True
-    else :
-        socket.sendall("402".encode())
-        return False
-# FIN METHODE'''
 
 # METHODE match_commande :
 def match_commande(socket,commande):
@@ -159,9 +145,9 @@ def match_commande(socket,commande):
         return "SENDFILE"
     elif re.match(r"ENDSENDFILE [^ ]+$",commande):
         return "ENDSENDFILE"
-    elif re.match(r"^MUTE$",commande):
+    elif re.match(r"^MUTE",commande):
         return "MUTE"
-    elif re.match(r"^UNMUTE$",commande):
+    elif re.match(r"^UNMUTE",commande):
         return "UNMUTE"
     elif re.match(r"QUIT", commande) :
         return "QUIT"
@@ -171,22 +157,19 @@ def match_commande(socket,commande):
 
 # METHODE QUIT
 def quit(socket,username):
+    code = "105 "+username  
 
     for value in Users.values() : 
         # prevenir les autres clients
-        code = "121 "+username  
         value["port"].sendall(code.encode())
 
         # Je supprime le client partout
-        if username in value['chat'] :  # Des chats 
-            value['chat'].pop(username)
-        if username in value['file'] :  # Des fichiers
-            value['file'].pop(username)
+        value['chat'].pop(username,None)
+        value['file'].pop(username,None)
 
-    Users.pop(username)  # Enfin, je supprime le client des users
+    Users.pop(username, None)  # Enfin, je supprime le client des users
 
-    socket.shutdown(socket.SHUT_RDWR)
-    socket.close()
+
 # FIN METHODE
 
 # METHODE MUTE
@@ -198,8 +181,6 @@ def mute(socket,username):
 
 # METHODE UNMUTE
 def unmute(socket,username):
-    socket.sendall("205".encode())  # message de retour ? pas sur a voir ....
-
     for value in Users.values() :   # prevenir les autres clients
         code = "121 "+username
         value["port"].sendall(code.encode())  
@@ -232,10 +213,8 @@ def connect(socket,message):
             Users[username]['file'] = {}
 
             for value in Users.values() :   # prevenir les autres clients
-                if Users[username]['port'] != value['port'] :
-                    code = "119 "+username
-                    value["port"].sendall(code.encode())
-
+                code = "119 "+username
+                value["port"].sendall(code.encode())
             return username
             
 # FIN METHODE
@@ -301,10 +280,9 @@ def whisper (socket,message,username):
             code= "415 "+username_chat
             socket.sendall(code.encode())
         else :
-            for value in Users.values() :   
-                if Users[username_chat]['port'] == value['port'] : # Je previens le client concerné qu'on desire chater avec lui 
-                    code = "116 "+username
-                    value["port"].sendall(code.encode())
+            # Je previens le client concerné qu'on desire chater avec lui 
+            code = "116 "+username
+            Users[username_chat]['port'].sendall(code.encode())
 
             Users[username]['chat'][username_chat] = False  # J'enregistre la demande de tchat chez l'envoyeur
 
@@ -335,10 +313,8 @@ def acceptwhisper (socket,message,username):
                     Users[username_chat_sender]['chat'][username] = True  # Je met le chat a True chez l'envoyeur
                     Users[username]['chat'][username_chat_sender] = True  # Je met le chat a True chez le recepteur (moi)
                     
-                    for value in Users.values() :
-                        if Users[username_chat_sender]['port'] == value['port'] : # Je previens le client concerné que sa demande de tchat a été acceptée  
-                            code_retour = "102 "+username
-                            value["port"].sendall(code_retour.encode())
+                    code_retour = "102 "+username  # Je previens le client concerné que sa demande de tchat a été acceptée 
+                    Users[username_chat_sender]['port'].sendall(code_retour.encode())
                     
                     code = "106 " + username_chat_sender   # On previent le client qu'il vient d'accepter la demande de whisper
                     socket.sendall(code.encode()) # message de retour a l'envoyeur : il vient d'accepter la demande de whisper   
@@ -367,11 +343,8 @@ def declinewhisper (socket,message,username):
                 else : # Il n'a pas encore accepté (chat a False)
                     Users[username_chat_sender]['chat'].pop(username)
                     
-                    for value in Users.values() :
-
-                        if Users[username_chat_sender]['port'] == value['port'] : #  Je previens le client concerné que sa demande de tchat a été refusée 
-                            code_retour = "103 "+ username
-                            value["port"].sendall(code_retour.encode())
+                    code_retour = "103 "+ username #  Je previens le client concerné que sa demande de tchat a été refusée 
+                    Users[username_chat_sender]['port'].sendall(code_retour.encode())
 
                     
                     code = "107 " + username_chat_sender  # On previent le client qu'il vient de refuser la demande de whisper
@@ -402,15 +375,9 @@ def whispermessage (socket,message,username):
                     socket.sendall(code.encode())  
                     
                 elif Users[username]['chat'][username_chat_receiver] == True : # S'il a accepté
-                    
-                    for value in Users.values() :
-
-                        if Users[username_chat_receiver]['port'] == value['port'] : #  J'envoie le message au client concerné
-                            code_retour =  username+" "+chat_message
-                            value["port"].sendall(code_retour.encode())
-                    
-                    code = "108 " + username_chat_receiver  # On previent le client que son message vient d'etre envoye
-                    socket.sendall(code.encode()) # message de retour a l'envoyeur : ton message a été envoyé avec succes 
+                        code_retour = "118 "+username+" "+chat_message
+                        Users[username_chat_receiver]['port'].sendall(code_retour.encode())
+                        socket.sendall(code_retour.encode())
 # FIN METHODE
 
 # METHODE ENDWHISPER user:
@@ -428,10 +395,8 @@ def endwhisper (socket,message,username):
 
             if Users[username]['chat'][username_chat] == True : # On est en discussion privée avec ce client
 
-                for value in Users.values() :   
-                    if Users[username_chat]['port'] == value['port'] : # Je previens le client concerné qu'on a arreté de chater avec lui 
-                        code = "122 "+username
-                        value["port"].sendall(code.encode())
+                code = "122 "+username # Je previens le client concerné qu'on a arreté de chater avec lui 
+                Users[username_chat]['port'].sendall(code.encode())
                 
                 code = "209 "+username_chat
                 socket.sendall(code.encode()) # message de retour a l'envoyeur : son chat est arreté
@@ -464,10 +429,8 @@ def sendfiledemand (socket,message,username):
             socket.sendall(code.encode())
 
         else : 
-            for value in Users.values() :   
-                if Users[username_file_send]['port'] == value['port'] : # Je previens le client concerné qu'on desire lui envoyer un fichier 
-                    code = "117 "+username
-                    value["port"].sendall(code.encode())
+            code = "117 "+username  # Je previens le client concerné qu'on desire lui envoyer un fichier 
+            Users[username_file_send]['port'].sendall(code.encode())
 
             Users[username]['file'][username_file_send] = False  # J'enregistre la demande d'envoi de fichier' chez l'envoyeur
 
@@ -475,7 +438,7 @@ def sendfiledemand (socket,message,username):
 # FIN METHODE
 
 # METHODE ACCEPTSENDFILE user port :
-def acceptsendfile (socket,message,username):
+def acceptsendfile (socket,message,username, adr_client):
     y = message.split(" ")    
     username_file_sender = y[1]  # On recupere le username de qui il va recevoir un fichier
     port_file = y[2]
@@ -498,21 +461,17 @@ def acceptsendfile (socket,message,username):
                 else : # Il n'a pas encore accepté (file a False)
                     Users[username_file_sender]['file'][username] = True  # Je met la demande de fichier a True chez l'envoyeur
                     
-                    for value in Users.values() :
-
-                        if Users[username_file_sender]['port'] == value['port'] : # Je previens le client concerné que sa demande d'envoi de fichier a été acceptée  
-                            code_retour = "111 "+username+" "+port_file
-                            value["port"].sendall(code_retour.encode())
+                    code_retour = "111 "+username+" "+adr_client[0]+" "+port_file  # Je previens le client concerné que sa demande d'envoi de fichier a été acceptée 
+                    Users[username_file_sender]['port'].sendall(code_retour.encode())
                     
                     code = "109 " + username_file_sender   # On previent le client qu'il vient d'accepter la demande d'envoi de fichier
-                    socket.sendall(code.encode()) # message de retour a l'envoyeur : il vient d'accepter la demande d'envoi de fichier
+                    socket.sendall(code.encode())
 # FIN METHODE
 
 # METHODE DECLINESENDFILE user port :
 def declinesendfile (socket,message,username):
     y = message.split(" ")    
     username_file_sender = y[1]  # On recupere le username de qui il va recevoir un fichier
-    port_file = y[2]
   
     if username_file_sender not in Users or username_file_sender == username :   # Verification du username : s'il n'existe pas ...
         code= "411 " + username_file_sender
@@ -531,15 +490,12 @@ def declinesendfile (socket,message,username):
                     
                 else : # Il n'a pas encore accepté (file a False)
                     Users[username_file_sender]['file'].pop(username)
+                   
+                    code_retour = "112 "+username # Je previens le client concerné que sa demande d'envoi de fichier a été refusée  
+                    Users[username_file_sender]['port'].sendall(code_retour.encode())
                     
-                    for value in Users.values() :
-
-                        if Users[username_file_sender]['port'] == value['port'] : # Je previens le client concerné que sa demande d'envoi de fichier a été refusée  
-                            code_retour = "112 "+username
-                            value["port"].sendall(code_retour.encode())
-                    
-                    code = "110 " + username_file_sender  
-                    socket.sendall(code.encode()) # message de retour a l'envoyeur : il vient de refuser la demande d'envoi de fichier
+                    code = "110 " + username_file_sender  # message de retour a l'envoyeur : il vient de refuser la demande d'envoi de fichier
+                    socket.sendall(code.encode()) 
 # FIN METHODE
 
 # METHODE SENDFILE user path :
@@ -570,10 +526,9 @@ def sendfile (socket,message,username):
                         socket.sendall("410".encode())   
 
                     else :  # Chemin du fichier correct
-                        for value in Users.values() :
-                            if Users[username_file_receiver]['port'] == value['port'] : #  J'envoie le fichier au client concerné
-                                code_retour = file_path
-                                value["port"].sendall(code_retour.encode())
+
+                        code_retour = file_path  #  J'envoie le fichier au client concerné
+                        Users[username_file_receiver]['port'].sendall(code_retour.encode())
                         
                         code = "113 " 
                         socket.sendall(code.encode()) # message de retour a l'envoyeur : ton fichier a été envoyé avec succes 
@@ -594,11 +549,9 @@ def endsendfile (socket,message,username):
         if username_file_receiver in Users[username]['file'] :  #  je verifie si le recepteur se trouve dans la liste
 
             if Users[username]['file'][username_file_receiver] == True : # On est en discussion fichier avec ce client
-
-                for value in Users.values() :   
-                    if Users[username_file_receiver]['port'] == value['port'] : # Je previens le client concerné qu'on a arreté de lui envoyer des fichier 
-                        code = "123 "+username
-                        value["port"].sendall(code.encode())
+                 
+                code = "123 "+username # Je previens le client concerné qu'on a arreté de lui envoyer des fichier 
+                Users[username_file_receiver]['port'].sendall(code.encode())
                 
                 code = "210 "+username_file_receiver
                 socket.sendall(code.encode()) # message de retour a l'envoyeur : son chat fichier est arreté
