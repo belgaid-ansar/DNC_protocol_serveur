@@ -10,8 +10,8 @@ port = int(config['parametres']['port_serveur'])
 log_file = config['parametres']['fichier_log']
 
 sock_locale = socket.socket()
-ip = socket.gethostbyname(socket.gethostname())
-sock_locale.bind((ip, port))
+ip = socket.gethostbyname(socket.gethostname()) # recuperer l'ip directement 
+sock_locale.bind(("127.0.0.1", port))
 sock_locale.listen(4)
 
 print("Serveur en attente sur le port " + str(port), file=sys.stderr)
