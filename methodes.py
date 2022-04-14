@@ -167,6 +167,7 @@ def match_commande(socket, commande):
 # METHODE QUIT
 def quit(socket, username):
     code = "105 " + username
+    Users.pop(username, None)  # Enfin, je supprime le client des users
 
     for value in Users.values():
         # prevenir les autres clients
@@ -175,10 +176,6 @@ def quit(socket, username):
         # Je supprime le client partout
         value['chat'].pop(username, None)
         value['file'].pop(username, None)
-
-    Users.pop(username, None)  # Enfin, je supprime le client des users
-
-
 # FIN METHODE
 
 # METHODE MUTE
@@ -186,8 +183,6 @@ def mute(socket, username):
     for value in Users.values():  # prevenir les autres clients
         code = "120 " + username
         value["port"].sendall(code.encode())
-
-
 # FIN METHODE
 
 # METHODE UNMUTE
@@ -253,9 +248,9 @@ def rename(socket, message, username):
                         value['chat'][new_username] = value['chat'].pop(username)
 
                 Users[new_username] = Users.pop(username)
+                code = "203 " + username + " " + new_username  # pas trop sur du 203 a voir...
 
                 for value in Users.values():  # prevenir les autres clients
-                    code = "203 " + username + " " + new_username  # pas trop sur du 203 a voir...
                     value["port"].sendall(code.encode())
 
             return new_username
