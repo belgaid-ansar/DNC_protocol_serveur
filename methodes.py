@@ -24,10 +24,13 @@ def traiter_client(sock_fille, adr_client, logs, username=None):
         print("Serveur à l'écoute")
 
         try:
-            message = sock_fille.recv(256).decode()
+            message = sock_fille.recv(256)
+            message = message.decode()
             with mutex_log:
                 logs.info("Received " + message + " from " + str(adr_client[0]))
+
         except:  # Connexion interrompue
+            print("bonjour")
             quit(sock_fille, username)
             sock_fille.shutdown(socket.SHUT_RDWR)
             sock_fille.close()
@@ -224,8 +227,6 @@ def connect(socket, message):
                     code = "119 " + username
                     value["port"].sendall(code.encode())
                 return username
-
-
 # FIN METHODE
 
 # METHODE RENAME username:
@@ -241,8 +242,8 @@ def rename(socket, message, username):
             if new_username in Users:  # Verification du username
                 socket.sendall("406".encode())
                 return ""
+            
             else:
-
                 for value in Users.values():
                     if username in value['chat']:  # Je modifie le username partout
                         value['chat'][new_username] = value['chat'].pop(username)
@@ -262,17 +263,12 @@ def broadcast(socket, message, username):
     y = message.split(" ", 1)  # On recupere le username
     broadcast = y[1]
 
-    # socket.sendall("206".encode()) # message de retour a l'envoyeur
-
     for value in Users.values():  # prevenir les autres clients
         # if Users[username]['port'] != value['port'] :
         code = "118 " + username + " " + broadcast
         value["port"].sendall(code.encode())
 
     socket.sendall("206".encode())  # message de retour a l'envoyeur
-    # return broadcast
-
-
 # FIN METHODE
 
 # METHODE WHISPER user:
@@ -296,8 +292,6 @@ def whisper(socket, message, username):
             Users[username]['chat'][username_chat] = False  # J'enregistre la demande de tchat chez l'envoyeur
 
             socket.sendall("101".encode())  # message de retour a l'envoyeur : sa demande a été envoyé
-
-
 # FIN METHODE
 
 # METHODE ACCEPTWHISPER user  :
@@ -331,8 +325,6 @@ def acceptwhisper(socket, message, username):
                 code = "106 " + username_chat_sender  # On previent le client qu'il vient d'accepter la demande de whisper
                 socket.sendall(
                     code.encode())  # message de retour a l'envoyeur : il vient d'accepter la demande de whisper
-
-
 # FIN METHODE
 
 # METHODE DECLINEWHISPER user  :
@@ -345,7 +337,8 @@ def declinewhisper(socket, message, username):
         socket.sendall(code.encode())
 
     else:
-        if username not in Users[username_chat_sender]['chat']:  # je verifie si on se trouve ds les demandes de l'envoyeur
+        if username not in Users[username_chat_sender][
+            'chat']:  # je verifie si on se trouve ds les demandes de l'envoyeur
             code = "412 " + username_chat_sender
             socket.sendall(code.encode())
 
@@ -364,8 +357,6 @@ def declinewhisper(socket, message, username):
                 code = "107 " + username_chat_sender  # On previent le client qu'il vient de refuser la demande de whisper
                 socket.sendall(
                     code.encode())  # message de retour a l'envoyeur : il vient de reffuser la demande de whisper
-
-
 # FIN METHODE
 
 
@@ -395,8 +386,6 @@ def whispermessage(socket, message, username):
                 code_retour = "115 " + username + " " + chat_message
                 Users[username_chat_receiver]['port'].sendall(code_retour.encode())
                 socket.sendall(code_retour.encode())
-
-
 # FIN METHODE
 
 # METHODE ENDWHISPER user:
@@ -430,8 +419,6 @@ def endwhisper(socket, message, username):
         else:  # On n'a meme pas recu de demande de whisper de ce client
             code = "420 " + username_chat
             socket.sendall(code.encode())  # On previent le client qu'il n'est pas en chat privee avec ce username
-
-
 # FIN METHODE
 
 # METHODE SENDFILEDEMAND  user:
@@ -458,8 +445,6 @@ def sendfiledemand(socket, message, username):
 
             socket.sendall(
                 "114".encode())  # message de retour a l'envoyeur : sa demande d'envoi de fichier a été envoyé
-
-
 # FIN METHODE
 
 # METHODE ACCEPTSENDFILE user port :
@@ -493,8 +478,6 @@ def acceptsendfile(socket, message, username, adr_client):
 
                 code = "109 " + username_file_sender  # On previent le client qu'il vient d'accepter la demande d'envoi de fichier
                 socket.sendall(code.encode())
-
-
 # FIN METHODE
 
 # METHODE DECLINESENDFILE user port :
@@ -526,7 +509,7 @@ def declinesendfile(socket, message, username):
 
                 code = "110 " + username_file_sender  # message de retour a l'envoyeur : il vient de refuser la demande d'envoi de fichier
                 socket.sendall(code.encode())
-            # FIN METHODE
+# FIN METHODE
 
 
 # METHODE SENDFILE user path :
@@ -567,8 +550,6 @@ def sendfile(socket, message, username):
 
                     Users[username]['file'].pop(
                         username_file_receiver)  # Le message est envoye , la discussion fichier est fermée
-
-
 # FIN METHODE
 
 # METHODE ENDSENDFILE user:
