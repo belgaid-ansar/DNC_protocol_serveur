@@ -1,30 +1,30 @@
+import configparser
+import logging
 
 from methodes import *
- 
-#Arguments
-if len(sys.argv) != 2:
-	print(f"Usage: {sys.argv[0]} <port>", file=sys.stderr)
-	sys.exit(1)
 
-sock_locale= socket.socket()
-sock_locale.bind(("192.168.43.101", int(sys.argv[1])))
+
+config = configparser.ConfigParser()
+config.read('dncserver.conf')
+port = int(config['parametres']['port_serveur'])
+log_file = config['parametres']['fichier_log']
+
+sock_locale = socket.socket()
+sock_locale.bind(("127.0.0.1", port))
 sock_locale.listen(4)
 
-print("Serveur en attente sur le port " + sys.argv[1], file=sys.stderr)
+print("Serveur en attente sur le port " + str(port), file=sys.stderr)
+logging.basicConfig(filename=log_file, filemode="w", format='%(asctime)s: %(message)s'
+                    , datefmt="%Y/%m/%d %H:%M:%S", level=logging.INFO)
+logging.info("Server started")
+logging.info("Listen on :" + str(port))
+
 
 while True:
     try:
         sock_client, adr_client = sock_locale.accept()
-        threading.Thread(target=traiter_client, args = (sock_client, adr_client)).start()
+        threading.Thread(target=traiter_client, args=(sock_client, adr_client, logging)).start()
     except KeyboardInterrupt:
         break
-
-'''sock_locale.shutdown(socket.SHUT_RDWR)
-print("Bye")
-
-for t in threading.enumerate():
-    if t != threading.main_thread(): 
-        t.join
-        print("Arret du serveur", file=sys.stderr)'''
 
 sys.exit(0)
