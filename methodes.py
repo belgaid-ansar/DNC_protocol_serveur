@@ -20,7 +20,7 @@ def traiter_client(sock_fille, adr_client, logs, username=None):
     print("Serveur à l'écoute")
 
     while True:
-        print(Users)
+        #print(Users)
         print("Serveur à l'écoute")
 
         try:
@@ -30,7 +30,6 @@ def traiter_client(sock_fille, adr_client, logs, username=None):
                 logs.info("Received " + message + " from " + str(adr_client[0]))
 
         except:  # Connexion interrompue
-            print("bonjour")
             quit(sock_fille, username)
             sock_fille.shutdown(socket.SHUT_RDWR)
             sock_fille.close()
